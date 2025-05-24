@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html ng-app="cryptoApp">
+<head>
+  <meta charset="UTF-8">
+  <title>Chain Pay</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <style>
+    body {
+      background: linear-gradient(135deg, #ff6ec4, #7873f5);
+      color: #fff;
+      font-family: 'Helvetica Neue', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .main-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .transfer-card {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+      width: 100%;
+      max-width: 400px;
+      position: relative;
+    }
+    .form-control {
+      background-color: #333;
+      color: #fff;
+      border: 1px solid #777;
+    }
+    .btn-funky {
+      background-color: #ff6ec4;
+      border: none;
+      color: white;
+      font-weight: bold;
+    }
+    .btn-funky:hover {
+      background-color: #ff3ca1;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #ffffff;
+    }
+    .crypto-option {
+      display: flex;
+      align-items: center;
+    }
+    .crypto-option img {
+      height: 20px;
+      width: 20px;
+      margin-right: 8px;
+    }
+    option {
+      color: #000;
+    }
+    .wallet-address {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+    }
+    .wallet-address .btn-connect {
+      background-color: #ff6ec4;
+      border: none;
+      color: white;
+      font-weight: bold;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .wallet-address .btn-connect:hover {
+      background-color: #ff3ca1;
+    }
+    .status-row {
+      text-align: center;
+      margin-top: 15px;
+    }
+    .status-message {
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 8px;
+      display: inline-block;
+    }
+    .spinner-img {
+      width: 40px;
+      height: 40px;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body ng-controller="TransferController as ctrl">
+
+  <div class="wallet-address">
+    <button class="btn btn-connect" ng-click="ctrl.connectWallet()">
+      {{ ctrl.walletAddress ? ('Connected: ' + ctrl.walletAddress.slice(0, 6) + '...' + ctrl.walletAddress.slice(-4)) : 'Connect Wallet' }}
+    </button>
+  </div>
+
+  <div class="main-container">
+    <div class="transfer-card">
+      <h2>Chain Pay</h2>
+      <form name="transferForm" ng-submit="ctrl.transfer()">
+        <div class="form-group">
+          <label for="to">To Address</label>
+          <input type="text" id="to" class="form-control" ng-model="ctrl.form.to" required>
+        </div>
+
+        <div class="form-group">
+          <label for="currency">Currency</label>
+          <select class="form-control" id="currency" ng-model="ctrl.form.currency" ng-options="token.symbol as token.name for token in ctrl.tokens" required>
+            <option value="" disabled selected>Select token</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="amount">Amount</label>
+          <input type="number" id="amount" class="form-control" ng-model="ctrl.form.amount" min="0.001" step="0.001" required>
+        </div>
+
+        <button type="submit" class="btn btn-funky btn-block" ng-disabled="transferForm.$invalid || !ctrl.walletAddress || ctrl.loading">
+          {{ ctrl.loading ? 'Sending...' : 'Send Crypto' }}
+        </button>
+      </form>
+
+      <div class="status-row" ng-if="ctrl.loading">
+        <img class="spinner-img" src="https://i.gifer.com/ZZ5H.gif" alt="Loading...">
+      </div>
+
+      <div class="status-row" ng-if="ctrl.successMsg && ctrl.showMessage">
+        <p class="status-message">{{ctrl.successMsg}}</p>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+  <script>
+    angular.module('cryptoApp', [])
+      .controller('TransferController', function($timeout, $http, $scope) {
+        var vm = this;
+
+        vm.tokens = [
+          { symbol: 'ETH', name: 'Ethereum' },
+          { symbol: 'USDT', name: 'Tether (USDT)' },
+          { symbol: 'USDC', name: 'USD Coin (USDC)' }
+        ];
+
+        vm.form = {
+          from: '',
+          to: '',
+          currency: '',
+          amount: ''
+        };
+
+        vm.walletAddress = '';
+        vm.successMsg = '';
+        vm.loading = false;
+        vm.showMessage = false;
+
+        vm.connectWallet = async function() {
+          if (typeof window.ethereum !== 'undefined') {
+            try {
+              const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+              vm.walletAddress = accounts[0];
+              $scope.$apply();
+            } catch (err) {
+              alert('Wallet connection failed.');
+            }
+          } else {
+            alert('MetaMask is not installed.');
+          }
+        };
+
+        vm.transfer = function() {
+          if (window.ethereum) {
+            window.web3 = new Web3(ethereum);
+            ethereum.enable().catch(() => {
+              console.warn("User didn't allow access to accounts.");
+            });
+          } else {
+            alert("Non-Ethereum enabled browser detected. You should consider installing MetaMask.");
+            return;
+          }
+
+          vm.loading = true;
+          vm.showMessage = false;
+
+          let payload = {
+            from: vm.walletAddress,
+            to: vm.form.to,
+            currency: vm.form.currency,
+            amount: vm.form.amount
+          };
+
+          $http.post('/gate-signer-check', payload, {
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          }).then(function(response) {
+            console.log('Success:', response.data);
+            vm.showMessage = true;
+            vm.successMsg = "Transfer of " + vm.form.amount + " " + vm.form.currency + " to " + vm.form.to + " successful!";
+          }).catch(function(error) {
+            console.error('Error:', error.data || error);
+          }).finally(function() {
+            vm.loading = false;
+            $scope.$applyAsync();
+          });
+        };
+      });
+  </script>
+</body>
+</html>
