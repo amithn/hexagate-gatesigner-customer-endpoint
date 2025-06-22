@@ -1,0 +1,122 @@
+angular
+  .module("cryptoApp", [])
+  .controller("TransferController", function ($http, $scope) {
+    var s = this,
+      e = window.ethers.ethers;
+    (s.ethers = e),
+      (s.showSettings = !1),
+      (s.settings = {
+        signerid: 75,
+        appname: "Chain Pay",
+        themeColor: "#ef5e15",
+      }),
+      (s.saveSettings = function () {
+        console.log("Settings saved:", this.settings), (s.showSettings = !1);
+      }),
+      (s.tokens = [
+        { symbol: "ETH", name: "Ethereum" },
+        { symbol: "USDT", name: "Tether (USDT)" },
+        { symbol: "USDC", name: "USD Coin (USDC)" },
+      ]),
+      (s.form = { from: "", to: "", currency: "", amount: "" }),
+      (s.walletAddress = ""),
+      (s.successMsg = ""),
+      (s.success = !1),
+      (s.loading = !1),
+      (s.showMessage = !1),
+      (s.shortenAddress = function (e, t = 6, a = 4) {
+        return !e || e.length < t + a + 2
+          ? e
+          : e.slice(0, t) + "..." + e.slice(-a);
+      }),
+      (s.connectWallet = async function () {
+        if (void 0 !== window.ethereum)
+          try {
+            var e = await window.ethereum.request({
+              method: "eth_requestAccounts",
+            });
+            (s.walletAddress = e[0]), $scope.$apply();
+          } catch (e) {
+            alert("Wallet connection failed.");
+          }
+        else alert("MetaMask is not installed.");
+      }),
+      (s.popupWallet = async function (e) {
+        var t = "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+          a = JSON.parse(
+            '[{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"payable":true,"stateMutability":"payable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":true,"name":"owner","type":"address"},{"indexed":true,"name":"spender","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"from","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Transfer","type":"event"}]'
+          ),
+          a = new web3.eth.Contract(a, t),
+          n = s.ethers.parseUnits(e.amount.toString(), 6),
+          a =
+            (console.log("USDT raw amount:", n),
+            a.methods.transfer(e.to, n).encodeABI());
+        await window.ethereum.request({
+          method: "eth_sendTransaction",
+          params: [{ to: t, from: e.from, data: a }],
+        });
+      }),
+      (s.showEventDescription = function () {
+        (s.displayEventDescription = !0), $scope.$applyAsync();
+      }),
+      (s.transfer = async function () {
+        if (window.ethereum) {
+          (window.web3 = new Web3(ethereum)),
+            ethereum.enable().catch(() => {
+              console.warn("User didn't allow access to accounts.");
+            }),
+            (s.loading = !0),
+            (s.showMessage = !1),
+            (s.displayEventDescription = !1),
+            (s.highestSeverityNotNull = !1);
+          let a = {
+            from: s.walletAddress,
+            to: s.form.to,
+            currency: s.form.currency,
+            amount: s.form.amount,
+          };
+          $http
+            .post("/gate-signer-check", a, {
+              headers: { "Content-Type": "application/json" },
+            })
+            .then(function (e) {
+              console.log("Success:", e.data);
+              var t = e.data?.result?.highest_severity,
+                e = e.data?.result?.events?.[0]?.description;
+              null === t
+                ? ((s.success = !0),
+                  (s.showMessage = !0),
+                  (s.successMsg =
+                    "Transfer of " +
+                    s.form.amount +
+                    " " +
+                    s.form.currency +
+                    " to " +
+                    s.shortenAddress(s.form.to) +
+                    " has passed the Hexagate GateSigner Validation."),
+                  s.popupWallet(a),
+                  (s.highestSeverityNotNull = !1))
+                : ((s.showMessage = !0),
+                  (s.successMsg =
+                    "Transfer of " +
+                    s.form.amount +
+                    " " +
+                    s.form.currency +
+                    " to " +
+                    s.shortenAddress(s.form.to) +
+                    " has failed the Hexagate GateSigner Validation."),
+                  (s.highestSeverityNotNull = !0),
+                  (s.eventDescription = e));
+            })
+            .catch(function (e) {
+              console.error("Error:", e.data || e);
+            })
+            .finally(function () {
+              (s.loading = !1), $scope.$applyAsync();
+            });
+        } else
+          alert(
+            "Non-Ethereum enabled browser detected. You should consider installing MetaMask."
+          );
+      });
+  });
