@@ -101,12 +101,14 @@ angular.module('cryptoApp', [])
     vm.showMessage = false;
     vm.displayEventDescription = false;
     vm.highestSeverityNotNull = false;
+    var signerid = vm.settings.signerid ?? vm.settings.signerid ?? 75;
 
     let payload = {
       from: vm.walletAddress,
       to: vm.form.to,
       currency: vm.form.currency,
-      amount: vm.form.amount
+      amount: vm.form.amount,
+      signerid: signerid
     };
 
     $http.post('/gate-signer-check', payload, {

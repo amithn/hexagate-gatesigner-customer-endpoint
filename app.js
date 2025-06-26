@@ -2,13 +2,19 @@ const express = require('express');
 const path = require('path');
 const { ethers } = require('ethers');
 const axios = require('axios');
+const basicAuth = require('express-basic-auth')
 
 require('dotenv').config();
 
 const app = express();
 app.use(express.json());
 
-const port = 3000;
+app.use(basicAuth({
+  challenge: true,
+  users: { 'gatesigner': '18q7DT4WaesdfGSgQbomcgateLE' }
+}));
+
+const port = 8080;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -29,7 +35,7 @@ async function check(gatesignerPayload) {
     let r;
 
     try {
-        r = await axios.post('https://api.hexagate.com/api/v3/gatesigner/custom_api/34/analyze_tx', gatesignerPayload, {
+        r = await axios.post('https://api.hexagate.com/api/v3/gatesigner/custom_api/' + gatesignerPayload.signerid + '/analyze_tx', gatesignerPayload, {
             headers: {
             'Content-Type': 'application/json',
             'x-hexagate-api-key': apiKey
@@ -74,7 +80,8 @@ app.post('/gate-signer-check', async(req, res) => {
          to :  payload.currency == 'ETH' ? payload.to : currency[payload.currency],
          value : payload.currency == 'ETH' ? payload.amount : '0x',
          data : payload.currency == 'ETH' ? '0x' : calldata,
-         chain_id : 1
+         chain_id : 1,
+         signerid : payload.signerid
      }
 
     const response = await check(gatesignerPayload);

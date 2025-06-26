@@ -16,5 +16,15 @@ RUN npm install --only=production
 # Copy local code to the container image.
 COPY . ./
 
+RUN npm install -g uglify-js
+
+# Minify the JS file
+RUN uglifyjs public/js/client.js -o public/js/client.min.js -m reserved='["$scope","$http","$timeout"]' -c
+
+# Remove the original (unminified) JS file
+RUN rm public/js/client.js
+
+EXPOSE 8080  
+
 # Run the web service on container startup.
 CMD [ "node", "app.js" ]
